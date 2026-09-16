@@ -2,7 +2,7 @@
 Camada de acesso ao banco de dados (Supabase / PostgreSQL).
 
 Este módulo isola todo o contato com o Supabase. Nenhum outro arquivo do
-projeto deve chamar `supabase.table(...)` diretamente — main.py só importa
+projeto deve chamar supabase.table(...) diretamente — main.py só importa
 e usa as funções definidas aqui.
 """
 
@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 
 from dotenv import load_dotenv
 from supabase import create_client, Client
+
 
 load_dotenv()  # lê o arquivo .env
 
@@ -34,6 +35,7 @@ def inserir_cofre(
     verificador_etiqueta: str,
 ) -> None:
     """Cria um novo cofre, já com o verificador (canário) cifrado."""
+
     supabase.table("cofres").insert({
         "id": cofre_id,
         "nome": nome,
@@ -47,13 +49,16 @@ def inserir_cofre(
 
 def buscar_cofre(cofre_id: str) -> dict | None:
     """Busca um cofre pelo id. Devolve None se não existir."""
+
     resposta = (
         supabase.table("cofres")
         .select("*")
         .eq("id", cofre_id)
         .execute()
     )
+
     registros = resposta.data
+
     return registros[0] if registros else None
 
 
@@ -72,6 +77,7 @@ def inserir_segredo(
     etiqueta: str,
 ) -> None:
     """Grava um novo segredo cifrado, associado a um cofre."""
+
     supabase.table("segredos").insert({
         "id": segredo_id,
         "cofre_id": cofre_id,
@@ -89,24 +95,30 @@ def listar_segredos(cofre_id: str) -> list[dict]:
     Lista os segredos de um cofre, apenas com metadados.
 
     Importante: NUNCA usar select("*") aqui. Os campos nonce, criptograma
-    e etiqueta não pertencem à listagem — expô-los sem necessidade viola
-    o princípio de reduzir ao mínimo os dados devolvidos.
+    e etiqueta não pertencem à listagem.
     """
+
     resposta = (
         supabase.table("segredos")
         .select("id, titulo, usuario, url, criado_em")
         .eq("cofre_id", cofre_id)
         .execute()
     )
+
     return resposta.data
 
 
-def buscar_segredo(cofre_id: str, segredo_id: str) -> dict | None:
+def buscar_segredo(
+    cofre_id: str,
+    segredo_id: str
+) -> dict | None:
     """
-    Busca um segredo específico, com todos os campos (necessário para
-    decifrar). Filtra também por cofre_id, para que um segredo de outro
+    Busca um segredo específico, com todos os campos.
+
+    Filtra também por cofre_id para que um segredo de outro
     cofre nunca seja devolvido por engano.
     """
+
     resposta = (
         supabase.table("segredos")
         .select("*")
@@ -114,24 +126,29 @@ def buscar_segredo(cofre_id: str, segredo_id: str) -> dict | None:
         .eq("cofre_id", cofre_id)
         .execute()
     )
+
     registros = resposta.data
+
     return registros[0] if registros else None
 
 
 def atualizar_segredo(
     segredo_id: str,
+    titulo: str,
+    usuario: str | None,
+    url: str | None,
     nonce: str,
     criptograma: str,
     etiqueta: str,
 ) -> None:
     """
-    Atualiza o criptograma de um segredo existente.
-
-    A camada de criptografia deve sortear um nonce NOVO antes de chamar
-    esta função — nunca reaproveite o nonce de uma gravação anterior,
-    mesmo em uma atualização.
+    Atualiza os dados e a senha criptografada de um segredo existente.
     """
+
     supabase.table("segredos").update({
+        "titulo": titulo,
+        "usuario": usuario,
+        "url": url,
         "nonce": nonce,
         "criptograma": criptograma,
         "etiqueta": etiqueta,
@@ -141,4 +158,5 @@ def atualizar_segredo(
 
 def remover_segredo(segredo_id: str) -> None:
     """Remove um segredo do cofre."""
+
     supabase.table("segredos").delete().eq("id", segredo_id).execute()
